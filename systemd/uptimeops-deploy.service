@@ -1,0 +1,13 @@
+[Unit]
+Description=UptimeOps GHCR to k3s deployment
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=peter
+Group=peter
+WorkingDirectory=/home/peter/projects/k3s-homelab
+Environment=HOME=/home/peter
+Environment=PATH=/snap/bin:/usr/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/home/peter/projects/k3s-homelab/scripts/deploy-ghcr.sh
