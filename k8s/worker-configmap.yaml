@@ -1,0 +1,19 @@
+apiVersion: v1
+data:
+  websites.json: |2
+
+    {
+      "websites": [
+        "https://www.webcurator.co.uk/",
+        "https://www.acewebcurator.co.uk/",
+        "https://www.sswebbuilder.com/",
+        "https://www.hopeforpeace.co.uk/",
+        "https://www.python.org/"
+      ],
+      "intervalSeconds": 90,
+      "timeoutSeconds": 10
+    }
+kind: ConfigMap
+metadata:
+  name: uptimeops-worker-config
+  namespace: uptimeops

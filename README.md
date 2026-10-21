@@ -2,11 +2,29 @@
 
 A full-stack website monitoring application built with **React, TypeScript, Node.js and SQLite**, containerised using Docker and deployed to a single-node **Kubernetes (k3s) homelab** running Ubuntu Server.
 
-UptimeOps automatically checks website availability every 60 seconds, records HTTP status codes and response times, stores historical results, and presents monitoring data through a modern web dashboard.
+UptimeOps automatically checks website availability every 90 seconds, records HTTP status codes and response times, stores historical results, and presents monitoring data through a modern web dashboard.
 
 ## Dashboard
 
 ![UptimeOps Monitoring Dashboard](screenshots/01-dashboard.png)
+
+## Kubernetes Networking
+
+Extended UptimeOps with Kubernetes service discovery, ConfigMaps, Secrets and hostname-based Traefik Ingress.
+
+Key improvements:
+
+- Verified internal ClusterIP Services and EndpointSlices
+- Tested CoreDNS resolution and backend HTTP connectivity
+- Externalised worker configuration using a Kubernetes ConfigMap
+- Changed the monitoring interval from 60 to 90 seconds without rebuilding Docker images
+- Verified Secret-based authentication between worker and backend
+- Configured local hostname access through `uptimeops.home.arpa`
+- Validated Kubernetes manifests against the running cluster
+
+![Kubernetes Networking](screenshots/04-kubernetes-networking.png)
+
+**[Read the Kubernetes Networking documentation](docs/kubernetes-networking.md)**
 
 ## Architecture
 
@@ -29,7 +47,7 @@ SQLite stores monitoring results on a persistent Kubernetes volume.
 | Traefik Ingress | Routes local-network HTTP traffic to the frontend |
 | React + Nginx | Displays website availability and response times |
 | Express API | Provides monitoring status, history and authenticated submissions |
-| Monitoring Worker | Checks five websites every 60 seconds |
+| Monitoring Worker | Checks five websites every 90 seconds |
 | SQLite | Stores monitoring history |
 | Kubernetes PVC | Preserves database files across Pod restarts |
 | Kubernetes Secret | Supplies the worker authentication token |
@@ -52,7 +70,7 @@ SQLite stores monitoring results on a persistent Kubernetes volume.
 
 ## Features
 
-- Automated website monitoring every 60 seconds
+- Automated website monitoring every 90 seconds
 - HTTP availability and response-time measurements
 - UP, DOWN and RESTRICTED status classification
 - React monitoring dashboard
@@ -136,6 +154,7 @@ The same Secret is supplied to the backend and worker through environment variab
 
 ### 5. Deploy the Application
 
+`kubectl apply -f k8s/worker-configmap.yaml`
 `kubectl apply -f k8s/uptimeops.yaml`
 
 `kubectl apply -f k8s/ingress.yaml`
@@ -154,7 +173,7 @@ The dashboard is accessible through the homelab server's local-network IP addres
 
 ![UptimeOps Monitoring Worker](screenshots/03-worker-logs.png)
 
-The worker performs availability checks every 60 seconds.
+The worker performs availability checks every 90 seconds.
 
 Each monitoring result includes:
 

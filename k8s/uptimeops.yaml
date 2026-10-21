@@ -1,3 +1,4 @@
+
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -10,6 +11,7 @@ spec:
   resources:
     requests:
       storage: 1Gi
+
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -62,6 +64,7 @@ spec:
         - name: data
           persistentVolumeClaim:
             claimName: uptimeops-data
+
 ---
 apiVersion: v1
 kind: Service
@@ -69,12 +72,13 @@ metadata:
   name: uptimeops-api
   namespace: uptimeops
 spec:
+  type: ClusterIP
   selector:
     app: uptimeops-api
   ports:
     - port: 3000
       targetPort: 3000
-  type: ClusterIP
+
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -103,6 +107,11 @@ spec:
                 secretKeyRef:
                   name: uptimeops-worker-token
                   key: token
+          volumeMounts:
+            - name: worker-config
+              mountPath: /app/config/websites.json
+              subPath: websites.json
+              readOnly: true
           resources:
             requests:
               cpu: 25m
@@ -110,6 +119,11 @@ spec:
             limits:
               cpu: 250m
               memory: 128Mi
+      volumes:
+        - name: worker-config
+          configMap:
+            name: uptimeops-worker-config
+
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -139,6 +153,7 @@ spec:
             limits:
               cpu: 250m
               memory: 128Mi
+
 ---
 apiVersion: v1
 kind: Service
@@ -146,9 +161,9 @@ metadata:
   name: uptimeops-frontend
   namespace: uptimeops
 spec:
+  type: ClusterIP
   selector:
     app: uptimeops-frontend
   ports:
     - port: 80
       targetPort: 80
-  type: ClusterIP

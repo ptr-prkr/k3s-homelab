@@ -7,6 +7,6 @@
     "https://www.hopeforpeace.co.uk/",
     "https://www.python.org/"
   ],
-  "intervalSeconds": 60,
+  "intervalSeconds": 90,
   "timeoutSeconds": 10
 }
