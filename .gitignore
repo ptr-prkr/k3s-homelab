@@ -1,0 +1,21 @@
+
+# Dependencies and build output
+node_modules/
+dist/
+
+# Local database and runtime data
+data/
+*.db
+*.db-shm
+*.db-wal
+
+# Secrets and environment variables
+.env
+.env.*
+!.env.example
+*secret*.yaml
+*secret*.yml
+
+# Temporary files
+*.log
+.DS_Store

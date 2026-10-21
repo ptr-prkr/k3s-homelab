@@ -1,0 +1,154 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: uptimeops-data
+  namespace: uptimeops
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: uptimeops-api
+  namespace: uptimeops
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: uptimeops-api
+  template:
+    metadata:
+      labels:
+        app: uptimeops-api
+    spec:
+      containers:
+        - name: api
+          image: docker.io/library/uptimeops-api:local
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 3000
+          env:
+            - name: DB_PATH
+              value: /data/uptimeops.db
+            - name: WORKER_API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: uptimeops-worker-token
+                  key: token
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: uptimeops-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: uptimeops-api
+  namespace: uptimeops
+spec:
+  selector:
+    app: uptimeops-api
+  ports:
+    - port: 3000
+      targetPort: 3000
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: uptimeops-worker
+  namespace: uptimeops
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: uptimeops-worker
+  template:
+    metadata:
+      labels:
+        app: uptimeops-worker
+    spec:
+      containers:
+        - name: worker
+          image: docker.io/library/uptimeops-worker:local
+          imagePullPolicy: Never
+          env:
+            - name: API_URL
+              value: http://uptimeops-api:3000
+            - name: WORKER_API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: uptimeops-worker-token
+                  key: token
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: uptimeops-frontend
+  namespace: uptimeops
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: uptimeops-frontend
+  template:
+    metadata:
+      labels:
+        app: uptimeops-frontend
+    spec:
+      containers:
+        - name: frontend
+          image: docker.io/library/uptimeops-frontend:local
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: uptimeops-frontend
+  namespace: uptimeops
+spec:
+  selector:
+    app: uptimeops-frontend
+  ports:
+    - port: 80
+      targetPort: 80
+  type: ClusterIP
