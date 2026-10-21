@@ -1,5 +1,5 @@
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import './App.css'
 
 type WebsiteStatus = 'UP' | 'DOWN' | 'RESTRICTED'
@@ -23,40 +23,89 @@ interface StatusResponse {
   results: WebsiteResult[]
 }
 
+const REFRESH_INTERVAL_MS = 30_000
+
 function App() {
   const [data, setData] = useState<StatusResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  async function loadStatus() {
+  const requestController = useRef<AbortController | null>(null)
+  const requestId = useRef(0)
+
+  const loadStatus = useCallback(async () => {
+    // Cancel any previous request before starting another.
+    requestController.current?.abort()
+
+    const controller = new AbortController()
+    requestController.current = controller
+
+    const currentRequestId = ++requestId.current
+
     try {
-      const response = await fetch('/api/status')
+      const response = await fetch('/api/status', {
+        signal: controller.signal,
+        cache: 'no-store',
+      })
 
       if (!response.ok) {
         throw new Error(`API returned HTTP ${response.status}`)
       }
 
       const result: StatusResponse = await response.json()
+
+      // Ignore outdated or cancelled requests.
+      if (
+        controller.signal.aborted ||
+        currentRequestId !== requestId.current
+      ) {
+        return
+      }
+
       setData(result)
       setError(null)
     } catch (err) {
+      if (
+        controller.signal.aborted ||
+        currentRequestId !== requestId.current
+      ) {
+        return
+      }
+
       setError(
         err instanceof Error ? err.message : 'Unable to load status'
       )
     } finally {
-      setLoading(false)
+      if (
+        !controller.signal.aborted &&
+        currentRequestId === requestId.current
+      ) {
+        setLoading(false)
+      }
     }
-  }
+  }, [])
 
   useEffect(() => {
-    void loadStatus()
+    // Schedule the initial request outside the effect's
+    // synchronous execution.
+    const initialRefresh = setTimeout(() => {
+      void loadStatus()
+    }, 0)
 
+    // Refresh monitoring data every 30 seconds.
     const interval = setInterval(() => {
       void loadStatus()
-    }, 30000)
+    }, REFRESH_INTERVAL_MS)
 
-    return () => clearInterval(interval)
-  }, [])
+    return () => {
+      clearTimeout(initialRefresh)
+      clearInterval(interval)
+
+      // Prevent an outstanding request from updating state
+      // after this effect is cleaned up.
+      requestController.current?.abort()
+    }
+  }, [loadStatus])
 
   const averageResponse = data?.results.length
     ? Math.round(
@@ -82,14 +131,18 @@ function App() {
           <span className="refresh-label">
             Auto-refresh: 30s
           </span>
-          <button onClick={() => void loadStatus()}>
+
+          <button
+            type="button"
+            onClick={() => void loadStatus()}
+          >
             Refresh now
           </button>
         </div>
       </header>
 
       {error && (
-        <div className="error">
+        <div className="error" role="alert">
           Unable to refresh monitoring data: {error}
         </div>
       )}
@@ -126,6 +179,7 @@ function App() {
                 <h2>Website monitoring</h2>
                 <p>Latest results from the monitoring worker</p>
               </div>
+
               <span className="website-count">
                 {data.results.length} websites
               </span>
@@ -136,6 +190,7 @@ function App() {
                 <div className="website-card" key={website.url}>
                   <div className="website-info">
                     <h3>{new URL(website.url).hostname}</h3>
+
                     <a
                       href={website.url}
                       target="_blank"
@@ -143,6 +198,7 @@ function App() {
                     >
                       {website.url}
                     </a>
+
                     <p>
                       Last checked:{' '}
                       {new Date(website.checkedAt).toLocaleString()}
@@ -152,12 +208,18 @@ function App() {
                   <div className="website-metrics">
                     <div>
                       <span>HTTP</span>
-                      <strong>{website.httpStatus ?? 'N/A'}</strong>
+                      <strong>
+                        {website.httpStatus ?? 'N/A'}
+                      </strong>
                     </div>
+
                     <div>
                       <span>Response</span>
-                      <strong>{website.responseTime} ms</strong>
+                      <strong>
+                        {website.responseTime} ms
+                      </strong>
                     </div>
+
                     <span
                       className={`status-badge ${website.status.toLowerCase()}`}
                     >
